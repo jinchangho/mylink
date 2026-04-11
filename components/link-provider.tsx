@@ -10,13 +10,15 @@ import {
   getDocs, 
   query, 
   orderBy, 
-  serverTimestamp 
+  serverTimestamp,
+  updateDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 interface LinkContextType {
   links: LinkType[];
   addLink: (title: string, url: string) => Promise<boolean>;
+  updateLink: (id: string, title: string, url: string) => Promise<boolean>;
   removeLink: (id: string) => Promise<void>;
   loading: boolean;
   refreshLinks: () => Promise<void>;
@@ -77,6 +79,31 @@ export function LinkProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateLink = async (id: string, title: string, url: string): Promise<boolean> => {
+    let formattedUrl = url.trim();
+    if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i;
+    if (!urlPattern.test(formattedUrl)) return false;
+
+    try {
+      const linkRef = doc(db, "users", "anorhymous", "link", id);
+      await updateDoc(linkRef, {
+        title,
+        url: formattedUrl,
+        updatedAt: serverTimestamp(),
+      });
+      
+      await fetchLinks(); // 수정 후 목록 갱신
+      return true;
+    } catch (e) {
+      console.error("Error updating link: ", e);
+      return false;
+    }
+  };
+
   const removeLink = async (id: string) => {
     try {
       await deleteDoc(doc(db, "users", "anorhymous", "link", id));
@@ -87,7 +114,7 @@ export function LinkProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <LinkContext.Provider value={{ links, addLink, removeLink, loading, refreshLinks: fetchLinks }}>
+    <LinkContext.Provider value={{ links, addLink, updateLink, removeLink, loading, refreshLinks: fetchLinks }}>
       {children}
     </LinkContext.Provider>
   );

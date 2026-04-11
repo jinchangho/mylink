@@ -9,14 +9,24 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, Pencil, Check, X } from "lucide-react";
 import { useLinks } from "@/components/link-provider";
 
 export default function MyPage() {
-  const { links, addLink, removeLink, loading } = useLinks();
+  const { links, addLink, updateLink, removeLink, loading } = useLinks();
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+
+  // Edit states
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Delete states
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [linkToDelete, setLinkToDelete] = useState<{ id: string; title: string } | null>(null);
 
   const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +42,51 @@ export default function MyPage() {
     } else {
       alert("올바른 주소 형식이 아닙니다. (예: google.com 또는 https://google.com)");
     }
+  };
+
+  const handleEditStart = (id: string, currentTitle: string, currentUrl: string) => {
+    setEditingId(id);
+    setEditTitle(currentTitle);
+    setEditUrl(currentUrl);
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditTitle("");
+    setEditUrl("");
+  };
+
+  const handleUpdateLink = async (id: string) => {
+    if (!editTitle || !editUrl || isUpdating) return;
+
+    setIsUpdating(true);
+    const success = await updateLink(id, editTitle, editUrl);
+    setIsUpdating(false);
+
+    if (success) {
+      setEditingId(null);
+      setEditTitle("");
+      setEditUrl("");
+    } else {
+      alert("올바른 주소 형식이 아닙니다. (예: google.com 또는 https://google.com)");
+    }
+  };
+
+  const handleDeleteRequest = (id: string, title: string) => {
+    setLinkToDelete({ id, title });
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!linkToDelete) return;
+    await removeLink(linkToDelete.id);
+    setIsDeleteDialogOpen(false);
+    setLinkToDelete(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setIsDeleteDialogOpen(false);
+    setLinkToDelete(null);
   };
 
   if (loading && links.length === 0) {
@@ -120,35 +175,126 @@ export default function MyPage() {
         ) : (
           <div className="grid gap-4">
             {links.map((link) => (
-              <Card key={link.id} className="group relative hover:border-[#5B5FC7]/40 hover:shadow-md transition-all duration-300 bg-white">
+              <Card key={link.id} className={`group relative hover:border-[#5B5FC7]/40 hover:shadow-md transition-all duration-300 bg-white ${editingId === link.id ? "ring-2 ring-[#5B5FC7]/20 border-[#5B5FC7]" : ""}`}>
                 <CardHeader className="p-5 flex flex-row items-center justify-between">
-                  <div className="space-y-1 overflow-hidden pr-4">
-                    <CardTitle className="text-lg font-bold text-slate-800 truncate">{link.title}</CardTitle>
-                    <CardDescription className="flex items-center">
-                      <a
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#5B5FC7] hover:underline break-all font-medium text-sm truncate"
-                      >
-                        {link.url}
-                      </a>
-                    </CardDescription>
+                  {editingId === link.id ? (
+                    <div className="flex-1 space-y-3 pr-4">
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="w-full px-3 py-1.5 text-base font-bold border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7]"
+                        placeholder="제목"
+                        autoFocus
+                      />
+                      <input
+                        type="text"
+                        value={editUrl}
+                        onChange={(e) => setEditUrl(e.target.value)}
+                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7]"
+                        placeholder="URL"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1 overflow-hidden pr-4 flex-1">
+                      <CardTitle className="text-lg font-bold text-slate-800 truncate">{link.title}</CardTitle>
+                      <CardDescription className="flex items-center">
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#5B5FC7] hover:underline break-all font-medium text-sm truncate"
+                        >
+                          {link.url}
+                        </a>
+                      </CardDescription>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1">
+                    {editingId === link.id ? (
+                      <>
+                        <button 
+                          onClick={() => handleUpdateLink(link.id)}
+                          disabled={isUpdating}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="저장"
+                        >
+                          <Check className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={handleEditCancel}
+                          disabled={isUpdating}
+                          className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                          title="취소"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={() => handleEditStart(link.id, link.title, link.url)}
+                          disabled={loading}
+                          className="p-2 text-slate-300 hover:text-[#5B5FC7] hover:bg-[#5B5FC7]/5 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                          title="수정"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteRequest(link.id, link.title)}
+                          disabled={loading}
+                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
-                  <button 
-                    onClick={() => removeLink(link.id)}
-                    disabled={loading}
-                    className="shrink-0 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="삭제"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
                 </CardHeader>
               </Card>
             ))}
           </div>
         )}
       </section>
+
+      {/* 삭제 확인 모달 */}
+      {isDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-slate-900">정말 삭제하시겠습니까?</h3>
+                <p className="text-slate-600">
+                  <span className="font-semibold text-slate-900">[{linkToDelete?.title}]</span> 링크가 삭제됩니다.
+                </p>
+                <div className="bg-red-50 border border-red-100 p-3 rounded-xl">
+                  <p className="text-sm text-red-600 font-medium">
+                    ⚠️ 이 작업은 되돌릴 수 없습니다.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={handleDeleteCancel}
+                  className="flex-1 py-6 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 font-bold"
+                >
+                  취소
+                </Button>
+                <Button 
+                  onClick={handleDeleteConfirm}
+                  className="flex-1 py-6 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-200 border-none transition-all active:scale-95"
+                >
+                  삭제하기
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
