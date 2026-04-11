@@ -13,15 +13,18 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { useLinks } from "@/components/link-provider";
 
 export default function MyPage() {
-  const { links, addLink, removeLink } = useLinks();
+  const { links, addLink, removeLink, loading } = useLinks();
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddLink = (e: React.FormEvent) => {
+  const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !url) return;
+    if (!title || !url || isAdding) return;
     
-    const success = addLink(title, url);
+    setIsAdding(true);
+    const success = await addLink(title, url);
+    setIsAdding(false);
     
     if (success) {
       setTitle("");
@@ -31,11 +34,19 @@ export default function MyPage() {
     }
   };
 
+  if (loading && links.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#5B5FC7]"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-xl mx-auto p-6 space-y-8 min-h-screen bg-slate-50/50">
+    <div className={`max-w-xl mx-auto p-6 space-y-8 min-h-screen bg-slate-50/50 transition-opacity duration-300 ${loading ? "opacity-70 pointer-events-none" : "opacity-100"}`}>
       <div className="flex items-center justify-start">
         <Link href="/">
-          <Button variant="outline" size="default" className="gap-2 text-slate-600 hover:text-[#5B5FC7] hover:border-[#5B5FC7] bg-white shadow-sm border-slate-200 transition-all font-medium">
+          <Button variant="outline" size="default" className="gap-2 text-slate-600 hover:text-[#5B5FC7] hover:border-[#5B5FC7] bg-white shadow-sm border-slate-200 transition-all font-medium" disabled={loading}>
             <ArrowLeft className="w-4 h-4" />
             메인으로 돌아가기
           </Button>
@@ -47,7 +58,8 @@ export default function MyPage() {
         <p className="text-slate-500 font-medium">나만의 소셜 링크를 자유롭게 관리하세요.</p>
       </header>
 
-      <section className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+      <section className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md relative overflow-hidden">
+        {loading && <div className="absolute top-0 left-0 w-full h-1 bg-[#5B5FC7]/20"><div className="h-full bg-[#5B5FC7] animate-progress-bar"></div></div>}
         <form onSubmit={handleAddLink} className="space-y-5">
           <div className="space-y-1.5">
             <label htmlFor="title" className="text-sm font-bold text-slate-800 ml-1">
@@ -59,7 +71,8 @@ export default function MyPage() {
               placeholder="링크 제목 입력"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 font-medium outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7] transition-all placeholder:text-slate-400"
+              disabled={loading}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 font-medium outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7] transition-all placeholder:text-slate-400 disabled:bg-slate-50"
               required
             />
           </div>
@@ -74,17 +87,19 @@ export default function MyPage() {
               placeholder="https://..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 font-medium outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7] transition-all placeholder:text-slate-400"
+              disabled={loading}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 font-medium outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7] transition-all placeholder:text-slate-400 disabled:bg-slate-50"
               required
             />
           </div>
 
           <Button
             type="submit"
-            className="w-full py-7 text-base font-bold text-white rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
+            disabled={loading}
+            className="w-full py-7 text-base font-bold text-white rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: "#5B5FC7" }}
           >
-            링크 추가하기
+            {loading ? "처리 중..." : "링크 추가하기"}
           </Button>
         </form>
       </section>
@@ -122,7 +137,8 @@ export default function MyPage() {
                   </div>
                   <button 
                     onClick={() => removeLink(link.id)}
-                    className="shrink-0 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    disabled={loading}
+                    className="shrink-0 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="삭제"
                   >
                     <Trash2 className="w-5 h-5" />
