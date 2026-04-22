@@ -10,10 +10,11 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { User as UserData } from "@/data/user";
 
 interface AuthContextType {
   user: FirebaseUser | null;
-  userData: any | null;
+  userData: UserData | null;
   loading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
@@ -23,72 +24,82 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userData, setUserData] = useState<any | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Handle Authentication State
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        // user.uid/likk (as per user request, though it might be a typo for 'link')
-        // But typically user info is in the user document itself.
-        // Let's check both or follow the user's specific path.
-        // If they said users/(user.uid)/likk, it might be a sub-document or just a typo.
-        // I'll try to get user doc first, and also look for 'likk' if they specifically meant a subpath.
-        
-        const userDocRef = doc(db, "users", firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (!userDoc.exists()) {
-          // Create user doc if it doesn't exist
-          const newUserData = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            display_name: firebaseUser.displayName || "User",
-            photo_url: firebaseUser.photoURL || "",
-            username: firebaseUser.email?.split("@")[0] || firebaseUser.uid.substring(0, 8),
-            bio: "안녕하세요! 반갑습니다.",
-            created_at: new Date(),
-          };
-          await setDoc(userDocRef, newUserData);
-          setUserData(newUserData);
-        } else {
-          setUserData(userDoc.data());
-        }
-
-        // Specifically listen to the path the user mentioned: users/(user.uid)/likk
-        // If 'likk' is a subcollection or a document? 
-        // "Firestore 경로: users/(user.uid)/likk" usually implies a document named 'likk' under users/uid.
-        const likkDocRef = doc(db, "users", firebaseUser.uid, "likk", "data"); 
-        // Or maybe they meant the document itself is named 'likk'? 
-        // Let's assume users/(uid) is the user profile, 
-        // and users/(uid)/likk might be some personalized info.
-        // The user said "해당 경로의 유저 정보를 화면에 보여줘야해".
-        
-        const unsubLikk = onSnapshot(doc(db, "users", firebaseUser.uid), (doc) => {
-           if (doc.exists()) {
-             setUserData(doc.data());
-           }
-        });
-        
-        return () => unsubLikk();
-      } else {
+      if (!firebaseUser) {
         setUserData(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
+  // Handle User Data Synchronization
+  useEffect(() => {
+    if (!user) return;
+
+    const userDocRef = doc(db, "users", user.uid);
+    
+    // Check if user document exists, if not create it
+    const checkUserDoc = async () => {
+      try {
+        const userDoc = await getDoc(userDocRef);
+        if (!userDoc.exists()) {
+          const newUserData: UserData = {
+            uid: user.uid,
+            email: user.email || "",
+            display_name: user.displayName || "User",
+            photo_url: user.photoURL || "",
+            username: user.email?.split("@")[0] || user.uid.substring(0, 8),
+            bio: "안녕하세요! 반갑습니다.",
+          };
+          await setDoc(userDocRef, {
+            ...newUserData,
+            created_at: new Date(),
+          });
+        }
+      } catch (error) {
+        console.error("Error checking/creating user doc:", error);
+      }
+    };
+
+    checkUserDoc();
+
+    // Listen for real-time updates to user data
+    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setUserData(snapshot.data() as UserData);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error("Error listening to user data:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const login = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   return (

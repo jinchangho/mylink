@@ -1,13 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Link as LinkType } from "@/data/links";
 import { 
   collection, 
   addDoc, 
   deleteDoc, 
   doc, 
-  getDocs, 
   query, 
   orderBy, 
   serverTimestamp,
@@ -23,7 +22,6 @@ interface LinkContextType {
   updateLink: (id: string, title: string, url: string) => Promise<boolean>;
   removeLink: (id: string) => Promise<void>;
   loading: boolean;
-  refreshLinks: () => Promise<void>;
 }
 
 const LinkContext = createContext<LinkContextType | undefined>(undefined);
@@ -33,35 +31,15 @@ export function LinkProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const fetchLinks = useCallback(async () => {
-    if (!user) {
-      setLinks([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Path: users/(user.uid)/likk as requested
-      const q = query(
-        collection(db, "users", user.uid, "likk"),
-        orderBy("createdAt", "desc")
-      );
-      const querySnapshot = await getDocs(q);
-      const linksData: LinkType[] = [];
-      querySnapshot.forEach((doc) => {
-        linksData.push({ id: doc.id, ...doc.data() } as LinkType);
-      });
-      setLinks(linksData);
-    } catch (e) {
-      console.error("Error fetching links: ", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
   useEffect(() => {
-    if (user) {
+    const syncData = async () => {
+      if (!user) {
+        setLinks([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
       const q = query(
         collection(db, "users", user.uid, "likk"),
         orderBy("createdAt", "desc")
@@ -79,11 +57,14 @@ export function LinkProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       });
 
-      return () => unsubscribe();
-    } else {
-      setLinks([]);
-      setLoading(false);
-    }
+      return unsubscribe;
+    };
+
+    const unsubPromise = syncData();
+
+    return () => {
+      unsubPromise.then(unsub => unsub && typeof unsub === 'function' && unsub());
+    };
   }, [user]);
 
   const addLink = async (title: string, url: string): Promise<boolean> => {
@@ -147,7 +128,7 @@ export function LinkProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <LinkContext.Provider value={{ links, addLink, updateLink, removeLink, loading, refreshLinks: fetchLinks }}>
+    <LinkContext.Provider value={{ links, addLink, updateLink, removeLink, loading }}>
       {children}
     </LinkContext.Provider>
   );
