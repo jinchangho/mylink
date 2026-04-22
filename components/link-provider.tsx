@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 import { Link as LinkType } from "@/data/links";
 import { 
   collection, 
@@ -11,9 +11,11 @@ import {
   query, 
   orderBy, 
   serverTimestamp,
-  updateDoc
+  updateDoc,
+  onSnapshot
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-provider";
 
 interface LinkContextType {
   links: LinkType[];
@@ -29,12 +31,20 @@ const LinkContext = createContext<LinkContextType | undefined>(undefined);
 export function LinkProvider({ children }: { children: ReactNode }) {
   const [links, setLinks] = useState<LinkType[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  const fetchLinks = async () => {
+  const fetchLinks = useCallback(async () => {
+    if (!user) {
+      setLinks([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      // Path: users/(user.uid)/likk as requested
       const q = query(
-        collection(db, "users", "anorhymous", "link"),
+        collection(db, "users", user.uid, "likk"),
         orderBy("createdAt", "desc")
       );
       const querySnapshot = await getDocs(q);
@@ -48,13 +58,37 @@ export function LinkProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchLinks();
-  }, []);
+    if (user) {
+      const q = query(
+        collection(db, "users", user.uid, "likk"),
+        orderBy("createdAt", "desc")
+      );
+      
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const linksData: LinkType[] = [];
+        querySnapshot.forEach((doc) => {
+          linksData.push({ id: doc.id, ...doc.data() } as LinkType);
+        });
+        setLinks(linksData);
+        setLoading(false);
+      }, (error) => {
+        console.error("Error listening to links: ", error);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    } else {
+      setLinks([]);
+      setLoading(false);
+    }
+  }, [user]);
 
   const addLink = async (title: string, url: string): Promise<boolean> => {
+    if (!user) return false;
+
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
@@ -64,14 +98,12 @@ export function LinkProvider({ children }: { children: ReactNode }) {
     if (!urlPattern.test(formattedUrl)) return false;
 
     try {
-      await addDoc(collection(db, "users", "anorhymous", "link"), {
+      await addDoc(collection(db, "users", user.uid, "likk"), {
         title,
         url: formattedUrl,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      
-      await fetchLinks(); // 추가 후 목록 갱신
       return true;
     } catch (e) {
       console.error("Error adding link: ", e);
@@ -80,6 +112,8 @@ export function LinkProvider({ children }: { children: ReactNode }) {
   };
 
   const updateLink = async (id: string, title: string, url: string): Promise<boolean> => {
+    if (!user) return false;
+
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
@@ -89,14 +123,12 @@ export function LinkProvider({ children }: { children: ReactNode }) {
     if (!urlPattern.test(formattedUrl)) return false;
 
     try {
-      const linkRef = doc(db, "users", "anorhymous", "link", id);
+      const linkRef = doc(db, "users", user.uid, "likk", id);
       await updateDoc(linkRef, {
         title,
         url: formattedUrl,
         updatedAt: serverTimestamp(),
       });
-      
-      await fetchLinks(); // 수정 후 목록 갱신
       return true;
     } catch (e) {
       console.error("Error updating link: ", e);
@@ -105,9 +137,10 @@ export function LinkProvider({ children }: { children: ReactNode }) {
   };
 
   const removeLink = async (id: string) => {
+    if (!user) return;
+
     try {
-      await deleteDoc(doc(db, "users", "anorhymous", "link", id));
-      await fetchLinks(); // 삭제 후 목록 갱신
+      await deleteDoc(doc(db, "users", user.uid, "likk", id));
     } catch (e) {
       console.error("Error removing link: ", e);
     }

@@ -4,6 +4,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils";
 import { LinkProvider } from "@/components/link-provider";
+import { AuthProvider } from "@/components/auth-provider";
+import { Header } from "@/components/header";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'})
 
@@ -25,9 +27,14 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <LinkProvider>
-            {children}
-          </LinkProvider>
+          <AuthProvider>
+            <LinkProvider>
+              <Header />
+              <div className="pt-16">
+                {children}
+              </div>
+            </LinkProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

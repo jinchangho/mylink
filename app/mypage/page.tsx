@@ -9,11 +9,13 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { ArrowLeft, Trash2, Pencil, Check, X } from "lucide-react";
+import { ArrowLeft, Trash2, Pencil, Check, X, LogIn, Lock } from "lucide-react";
 import { useLinks } from "@/components/link-provider";
+import { useAuth } from "@/components/auth-provider";
 
 export default function MyPage() {
-  const { links, addLink, updateLink, removeLink, loading } = useLinks();
+  const { user, loading: authLoading, login } = useAuth();
+  const { links, addLink, updateLink, removeLink, loading: linksLoading } = useLinks();
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -89,13 +91,45 @@ export default function MyPage() {
     setLinkToDelete(null);
   };
 
-  if (loading && links.length === 0) {
+  if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#5B5FC7]"></div>
       </div>
     );
   }
+
+  if (!user) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-slate-50 text-center">
+        <div className="bg-white p-10 rounded-3xl shadow-xl border border-slate-100 max-w-lg w-full space-y-6">
+          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2">
+            <Lock className="w-10 h-10 text-[#5B5FC7]" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-slate-900">링크 관리는 로그인 후 가능합니다</h1>
+            <p className="text-slate-500 leading-relaxed">
+              자신만의 링크를 추가하고 수정하려면 구글 계정으로 로그인이 필요합니다.<br/>
+              지금 로그인하고 나만의 링크 페이지를 완성해보세요!
+            </p>
+          </div>
+          <Button 
+            onClick={login}
+            size="lg"
+            className="w-full bg-[#5B5FC7] hover:bg-[#4a4db0] text-white py-8 rounded-2xl text-lg font-bold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] gap-3"
+          >
+            <LogIn className="w-6 h-6" />
+            Google 계정으로 로그인하기
+          </Button>
+          <Link href="/" className="block text-sm text-slate-400 hover:text-[#5B5FC7] transition-colors pt-2">
+            메인 페이지 구경하기
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const loading = linksLoading || authLoading;
 
   return (
     <div className={`max-w-xl mx-auto p-6 space-y-8 min-h-screen bg-slate-50/50 transition-opacity duration-300 ${loading ? "opacity-70 pointer-events-none" : "opacity-100"}`}>
@@ -236,7 +270,7 @@ export default function MyPage() {
                         <button 
                           onClick={() => handleEditStart(link.id, link.title, link.url)}
                           disabled={loading}
-                          className="p-2 text-slate-300 hover:text-[#5B5FC7] hover:bg-[#5B5FC7]/5 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                          className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                           title="수정"
                         >
                           <Pencil className="w-4 h-4" />
@@ -244,7 +278,7 @@ export default function MyPage() {
                         <button 
                           onClick={() => handleDeleteRequest(link.id, link.title)}
                           disabled={loading}
-                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
                           title="삭제"
                         >
                           <Trash2 className="w-4 h-4" />
