@@ -45,10 +45,10 @@ export default function Home() {
 
   // Use userData if available, otherwise fallback to firebase user info
   const profile = {
-    display_name: userData?.display_name || user.displayName || "User",
+    displayName: userData?.displayName || user.displayName || "User",
     username: userData?.username || user.email?.split("@")[0] || "user",
     bio: userData?.bio || "나만의 링크를 소개해보세요.",
-    photo_url: userData?.photo_url || user.photoURL || "https://github.com/shadcn.png",
+    photoURL: userData?.photoURL || user.photoURL || "https://github.com/shadcn.png",
   };
 
   return (
@@ -57,13 +57,13 @@ export default function Home() {
         {/* 프로필 섹션 */}
         <div className="flex flex-col items-center text-center space-y-4">
           <Avatar className="w-24 h-24 border-2 border-white shadow-md">
-            <AvatarImage src={profile.photo_url} alt={profile.display_name} />
+            <AvatarImage src={profile.photoURL} alt={profile.displayName} />
             <AvatarFallback className="bg-slate-200 text-slate-600">
-              {profile.display_name.charAt(0)}
+              {profile.displayName.charAt(0)}
             </AvatarFallback>
           </Avatar>
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-slate-900">{profile.display_name}</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{profile.displayName}</h1>
             <p className="text-sm font-medium text-[#5B5FC7]">@{profile.username}</p>
             <p className="text-sm text-slate-500 whitespace-pre-line mt-2">{profile.bio}</p>
           </div>

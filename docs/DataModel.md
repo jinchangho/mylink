@@ -11,10 +11,11 @@
 | :--- | :--- | :--- |
 | `uid` | String | 구글 계정 고유 식별자 (Primary Key) |
 | `email` | String | 사용자의 구글 이메일 주소 |
-| `username` | String | 고유 URL 핸들 (예: mylink.com/**username**) |
-| `display_name` | String | 프로필에 표시될 이름 (기본값: Gmail 앞부분) |
-| `bio` | String | 한 줄 소개 |
-| `photo_url` | String | 프로필 이미지 URL |
+| `profile` | Object | 사용자 프로필 상세 정보 |
+| `profile.username` | String | 고유 URL 핸들 (예: mylink.com/**username**) |
+| `profile.displayName` | String | 프로필에 표시될 이름 (기본값: Google 이름) |
+| `profile.bio` | String | 한 줄 소개 |
+| `profile.photoURL` | String | 프로필 이미지 URL |
 | `created_at` | Timestamp | 계정 생성 일시 |
 | `updated_at` | Timestamp | 정보 최종 수정 일시 |
 

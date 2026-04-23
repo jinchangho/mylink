@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,14 +8,27 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardContent,
 } from "@/components/ui/card";
-import { ArrowLeft, Trash2, Pencil, Check, X, LogIn, Lock } from "lucide-react";
+import { ArrowLeft, Trash2, Pencil, Check, X, LogIn, Lock, User, Save, Loader2, AlertCircle } from "lucide-react";
 import { useLinks } from "@/components/link-provider";
 import { useAuth } from "@/components/auth-provider";
+import { db } from "@/lib/firebase";
+import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 export default function MyPage() {
-  const { user, loading: authLoading, login } = useAuth();
+  const { user, userData, loading: authLoading, login } = useAuth();
   const { links, addLink, updateLink, removeLink, loading: linksLoading } = useLinks();
+  
+  // Profile states
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Link states
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -29,6 +42,58 @@ export default function MyPage() {
   // Delete states
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [linkToDelete, setLinkToDelete] = useState<{ id: string; title: string } | null>(null);
+
+  // Initialize profile states when userData is available
+  useEffect(() => {
+    if (userData) {
+      setUsername(userData.username || "");
+      setDisplayName(userData.displayName || "");
+      setBio(userData.bio || "");
+    }
+  }, [userData]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || isUpdatingProfile) return;
+
+    setIsUpdatingProfile(true);
+    setProfileError(null);
+    setProfileSuccess(false);
+
+    try {
+      // 1. Username Uniqueness Check (only if changed)
+      if (username !== userData?.username) {
+        // Basic validation for username
+        if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+          throw new Error("사용자 이름은 3~20자의 영문, 숫자, 언더바(_)만 가능합니다.");
+        }
+
+        const q = query(collection(db, "users"), where("profile.username", "==", username));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          throw new Error("이미 사용 중인 이름입니다. 다른 이름을 입력해주세요.");
+        }
+      }
+
+      // 2. Update Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      await updateDoc(userDocRef, {
+        "profile.username": username,
+        "profile.displayName": displayName,
+        "profile.bio": bio,
+        "updated_at": new Date(),
+      });
+
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
+    } catch (error: any) {
+      console.error("Profile update failed:", error);
+      setProfileError(error.message || "프로필 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
 
   const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,12 +208,109 @@ export default function MyPage() {
       </div>
 
       <header className="text-center space-y-2">
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">내 링크 관리</h1>
-        <p className="text-slate-500 font-medium">나만의 소셜 링크를 자유롭게 관리하세요.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">내 페이지 관리</h1>
+        <p className="text-slate-500 font-medium">프로필 정보와 링크를 자유롭게 관리하세요.</p>
       </header>
 
+      {/* 프로필 수정 섹션 */}
+      <section className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md relative overflow-hidden">
+        <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+          <User className="w-5 h-5 text-[#5B5FC7]" />
+          <h2 className="text-xl font-bold text-slate-800">프로필 설정</h2>
+        </div>
+
+        <form onSubmit={handleUpdateProfile} className="space-y-5">
+          <div className="space-y-1.5">
+            <label htmlFor="username" className="text-sm font-bold text-slate-800 ml-1">
+              사용자 이름 (URL 핸들)
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">
+                mylink.com/
+              </span>
+              <input
+                id="username"
+                type="text"
+                placeholder="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                disabled={isUpdatingProfile}
+                className="w-full pl-[105px] pr-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 font-medium outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7] transition-all placeholder:text-slate-400 disabled:bg-slate-50"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="displayName" className="text-sm font-bold text-slate-800 ml-1">
+              표시 이름
+            </label>
+            <input
+              id="displayName"
+              type="text"
+              placeholder="표시될 이름을 입력하세요"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              disabled={isUpdatingProfile}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 font-medium outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7] transition-all placeholder:text-slate-400 disabled:bg-slate-50"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="bio" className="text-sm font-bold text-slate-800 ml-1">
+              소개글
+            </label>
+            <textarea
+              id="bio"
+              placeholder="자신을 짧게 소개해주세요"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              disabled={isUpdatingProfile}
+              rows={3}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 font-medium outline-none focus:ring-2 focus:ring-[#5B5FC7]/30 focus:border-[#5B5FC7] transition-all placeholder:text-slate-400 disabled:bg-slate-50 resize-none"
+            />
+          </div>
+
+          {profileError && (
+            <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100">
+              <AlertCircle className="w-4 h-4" />
+              {profileError}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={isUpdatingProfile}
+            className={`w-full py-7 text-base font-bold text-white rounded-xl shadow-lg transition-all active:scale-[0.98] gap-2 ${profileSuccess ? "bg-green-600 hover:bg-green-700" : "bg-slate-900 hover:bg-slate-800"}`}
+          >
+            {isUpdatingProfile ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                저장 중...
+              </>
+            ) : profileSuccess ? (
+              <>
+                <Check className="w-5 h-5" />
+                저장 완료!
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                프로필 저장하기
+              </>
+            )}
+          </Button>
+        </form>
+      </section>
+
+      {/* 링크 추가 섹션 */}
       <section className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md relative overflow-hidden">
         {loading && <div className="absolute top-0 left-0 w-full h-1 bg-[#5B5FC7]/20"><div className="h-full bg-[#5B5FC7] animate-progress-bar"></div></div>}
+        <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+          <Pencil className="w-5 h-5 text-[#5B5FC7]" />
+          <h2 className="text-xl font-bold text-slate-800">새 링크 추가</h2>
+        </div>
         <form onSubmit={handleAddLink} className="space-y-5">
           <div className="space-y-1.5">
             <label htmlFor="title" className="text-sm font-bold text-slate-800 ml-1">

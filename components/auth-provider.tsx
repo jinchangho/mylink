@@ -51,16 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const userDoc = await getDoc(userDocRef);
         if (!userDoc.exists()) {
-          const newUserData: UserData = {
-            uid: user.uid,
-            email: user.email || "",
-            display_name: user.displayName || "User",
-            photo_url: user.photoURL || "",
+          const profileData = {
             username: user.email?.split("@")[0] || user.uid.substring(0, 8),
+            displayName: user.displayName || "User",
             bio: "안녕하세요! 반갑습니다.",
+            photoURL: user.photoURL || "",
           };
           await setDoc(userDocRef, {
-            ...newUserData,
+            uid: user.uid,
+            email: user.email || "",
+            profile: profileData,
             created_at: new Date(),
           });
         }
@@ -74,7 +74,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for real-time updates to user data
     const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
       if (snapshot.exists()) {
-        setUserData(snapshot.data() as UserData);
+        const data = snapshot.data();
+        setUserData({
+          uid: data.uid,
+          email: data.email,
+          ...data.profile
+        } as UserData);
       }
       setLoading(false);
     }, (error) => {

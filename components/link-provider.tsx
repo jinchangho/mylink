@@ -41,7 +41,7 @@ export function LinkProvider({ children }: { children: ReactNode }) {
 
       setLoading(true);
       const q = query(
-        collection(db, "users", user.uid, "likk"),
+        collection(db, "users", user.uid, "links"),
         orderBy("createdAt", "desc")
       );
       
@@ -79,7 +79,7 @@ export function LinkProvider({ children }: { children: ReactNode }) {
     if (!urlPattern.test(formattedUrl)) return false;
 
     try {
-      await addDoc(collection(db, "users", user.uid, "likk"), {
+      await addDoc(collection(db, "users", user.uid, "links"), {
         title,
         url: formattedUrl,
         createdAt: serverTimestamp(),
@@ -104,7 +104,7 @@ export function LinkProvider({ children }: { children: ReactNode }) {
     if (!urlPattern.test(formattedUrl)) return false;
 
     try {
-      const linkRef = doc(db, "users", user.uid, "likk", id);
+      const linkRef = doc(db, "users", user.uid, "links", id);
       await updateDoc(linkRef, {
         title,
         url: formattedUrl,
@@ -121,7 +121,7 @@ export function LinkProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
-      await deleteDoc(doc(db, "users", user.uid, "likk", id));
+      await deleteDoc(doc(db, "users", user.uid, "links", id));
     } catch (e) {
       console.error("Error removing link: ", e);
     }
