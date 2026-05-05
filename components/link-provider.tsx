@@ -82,6 +82,7 @@ export function LinkProvider({ children }: { children: ReactNode }) {
       await addDoc(collection(db, "users", user.uid, "links"), {
         title,
         url: formattedUrl,
+        clickCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

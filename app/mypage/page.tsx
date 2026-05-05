@@ -10,7 +10,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { ArrowLeft, Trash2, Pencil, Check, X, LogIn, Lock, User, Save, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Trash2, Pencil, Check, X, LogIn, Lock, User, Save, Loader2, AlertCircle, BarChart3, MousePointer2 } from "lucide-react";
 import { useLinks } from "@/components/link-provider";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
@@ -20,7 +20,11 @@ export default function MyPage() {
   const { user, userData, loading: authLoading, login } = useAuth();
   const { links, addLink, updateLink, removeLink, loading: linksLoading } = useLinks();
   
-  // Profile states
+  // Statistics Calculations
+  const totalClicks = links.reduce((acc, link) => acc + (link.clickCount || 0), 0);
+  const sortedLinks = [...links].sort((a, b) => (b.clickCount || 0) - (a.clickCount || 0));
+
+  // Profile states (rest of logic...)
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -393,7 +397,15 @@ export default function MyPage() {
                     </div>
                   ) : (
                     <div className="space-y-1 overflow-hidden pr-4 flex-1">
-                      <CardTitle className="text-lg font-bold text-slate-800 truncate">{link.title}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg font-bold text-slate-800 truncate">{link.title}</CardTitle>
+                        {link.clickCount !== undefined && (
+                          <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                            <span className="w-1 h-1 bg-slate-400 rounded-full"></span>
+                            {link.clickCount} clicks
+                          </span>
+                        )}
+                      </div>
                       <CardDescription className="flex items-center">
                         <a
                           href={link.url}
@@ -451,6 +463,60 @@ export default function MyPage() {
                 </CardHeader>
               </Card>
             ))}
+          </div>
+        )}
+      </section>
+
+      {/* 통계 섹션 */}
+      <section className="space-y-6 pb-20">
+        <div className="flex items-center gap-2 mb-2 border-b border-slate-200 pb-3 mx-1">
+          <BarChart3 className="w-5 h-5 text-[#5B5FC7]" />
+          <h2 className="text-xl font-bold text-slate-800">방문 통계</h2>
+        </div>
+
+        {links.length > 0 ? (
+          <div className="space-y-4">
+            {/* 총 클릭수 카드 */}
+            <Card className="bg-white border-[#5B5FC7]/10 shadow-sm overflow-hidden">
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2">
+                <div className="w-12 h-12 bg-[#5B5FC7]/10 rounded-full flex items-center justify-center mb-1">
+                  <MousePointer2 className="w-6 h-6 text-[#5B5FC7]" />
+                </div>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">총 클릭수</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-black text-slate-900">총 {totalClicks.toLocaleString()}</span>
+                  <span className="text-xl font-bold text-slate-400">클릭</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 링크별 클릭수 (정렬됨) */}
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader className="p-5 border-b border-slate-50">
+                <CardTitle className="text-base font-bold text-slate-700">링크별 상세 통계</CardTitle>
+                <CardDescription>가장 많이 클릭된 순서대로 정렬됩니다.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-50">
+                  {sortedLinks.map((link) => (
+                    <div key={link.id} className="flex items-center justify-between p-4 hover:bg-slate-50/50 transition-colors">
+                      <div className="flex flex-col min-w-0 pr-4">
+                        <span className="font-bold text-slate-800 truncate">{link.title}</span>
+                        <span className="text-xs text-slate-400 truncate">{link.url}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-lg font-black text-[#5B5FC7]">{(link.clickCount || 0).toLocaleString()}</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase">Clicks</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">
+            통계를 표시할 링크가 없습니다.
           </div>
         )}
       </section>

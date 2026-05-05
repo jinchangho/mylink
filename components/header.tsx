@@ -22,7 +22,7 @@ export function Header() {
             <>
               <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <User className="w-4 h-4" />
-                <span>{userData?.display_name || user.displayName}님</span>
+                <span>{userData?.displayName || user.displayName}님</span>
               </div>
               <Button 
                 variant="ghost" 

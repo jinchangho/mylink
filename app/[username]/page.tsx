@@ -1,17 +1,21 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, doc, updateDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { User as UserData } from "@/data/user";
 import { Link as LinkType } from "@/data/links";
+import { useAuth } from "@/components/auth-provider";
 
 export default function UserPublicPage() {
   const params = useParams();
   const username = params.username as string;
+  const { user } = useAuth();
   
   const [userData, setUserData] = useState<UserData | null>(null);
   const [links, setLinks] = useState<LinkType[]>([]);
@@ -66,6 +70,27 @@ export default function UserPublicPage() {
     }
   }, [username]);
 
+  const handleLinkClick = async (linkId: string) => {
+    // 3. 에러 처리 - 로그인 확인
+    if (!user) {
+      console.error("로그인이 필요합니다. 클릭 카운트가 저장되지 않습니다.");
+      return;
+    }
+
+    if (!userData?.uid) return;
+
+    try {
+      // 2. Firestore에 클릭 카운트 저장 users/{userId}/links/{linkId} 문서에 clickCount 필드
+      // 동시 클릭해도 정확하게 카운트 서버에서 안전하게 처리
+      const linkRef = doc(db, "users", userData.uid, "links", linkId);
+      await updateDoc(linkRef, {
+        clickCount: increment(1)
+      });
+    } catch (error) {
+      console.error("클릭 카운트 저장 중 오류 발생:", error);
+    }
+  };
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -111,6 +136,7 @@ export default function UserPublicPage() {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => handleLinkClick(link.id)}
                 className="block transition-transform hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Card className="hover:border-[#5B5FC7]/50 transition-colors bg-white shadow-sm border-slate-100">
